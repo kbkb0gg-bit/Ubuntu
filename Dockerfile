@@ -1,32 +1,43 @@
-FROM debian:bookworm-slim
+FROM debian:bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=root
+ENV PORT=8080
+ENV DISPLAY=:1
 
-# Install XFCE desktop, VNC server and required utilities
+# Install XFCE, VNC, noVNC and websockify
 RUN apt-get update && apt-get install -y \
-    xfce4\
+    xfce4 \
     xfce4-terminal \
     dbus-x11 \
     tigervnc-standalone-server \
     tigervnc-common \
-    sudo \
-    nano \
-    wget \
-    curl \
+    novnc \
+    websockify \
+    xterm \
+    procps \
     ca-certificates \
-    x11-xserver-utils \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set VNC password and configure desktop startup
+# Configure VNC
 RUN mkdir -p /root/.vnc && \
-    printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec startxfce4\n' > /root/.vnc/xstartup && \
+    printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec dbus-launch --exit-with-session startxfce4\n' \
+    > /root/.vnc/xstartup && \
     chmod +x /root/.vnc/xstartup && \
-    printf 'docker123\n' | vncpasswd -f > /root/.vnc/passwd && \
+    printf 'railway123\n' | vncpasswd -f > /root/.vnc/passwd && \
     chmod 600 /root/.vnc/passwd
 
-# VNC display :1 = port 5901
-EXPOSE 5901
+# Startup script
+RUN printf '#!/bin/bash\n\
+set -e\n\
+mkdir -p /tmp/runtime-root\n\
+chmod 700 /tmp/runtime-root\n\
+export XDG_RUNTIME_DIR=/tmp/runtime-root\n\
+vncserver :1 -geometry 1280x800 -depth 24 -localhost yes\n\
+exec websockify --web=/usr/share/novnc 0.0.0.0:${PORT} localhost:5901\n' \
+    > /start.sh && chmod +x /start.sh
 
-CMD ["sh", "-c", "vncserver :1 -geometry 1280x800 -depth 24 -localhost no && tail -F /root/.vnc/*.log"]
+EXPOSE 8080
+
+CMD ["/start.sh"]
