@@ -4,7 +4,7 @@ ENV DISPLAY=:1
 ENV LANG=C.UTF-8
 ENV HOME=/root
 
-# Install complete XFCE desktop and VNC server
+# Install XFCE desktop and VNC packages
 RUN apk add --no-cache \
     xfce4 \
     xfce4-terminal \
@@ -23,8 +23,6 @@ RUN apk add --no-cache \
     procps \
     bash \
     nano \
-    sudo \
-    shadow \
     adwaita-icon-theme \
     hicolor-icon-theme
 
@@ -33,7 +31,7 @@ RUN mkdir -p /root/.vnc && \
     printf 'ChangeMe123!\n' | vncpasswd -f > /root/.vnc/passwd && \
     chmod 600 /root/.vnc/passwd
 
-# Configure desktop startup
+# Configure XFCE startup
 RUN printf '#!/bin/sh\n\
 unset SESSION_MANAGER\n\
 unset DBUS_SESSION_BUS_ADDRESS\n\
@@ -41,15 +39,22 @@ exec dbus-launch --exit-with-session startxfce4\n' \
     > /root/.vnc/xstartup && \
     chmod +x /root/.vnc/xstartup
 
-# Start VNC server and desktop
+# Find the installed VNC server executable
+RUN VNC_BIN="$(command -v Xvnc || command -v Xtigervnc || find /usr -type f \( -name Xvnc -o -name Xtigervnc \) -print -quit)" && \
+    test -n "$VNC_BIN" && \
+    printf '%s\n' "$VNC_BIN" > /vnc-bin
+
+# Start VNC and XFCE
 RUN cat > /start.sh <<'EOF'
 #!/bin/sh
 set -eu
 
+VNC_BIN="$(cat /vnc-bin)"
+
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 
-exec Xtigervnc :1 \
+exec "$VNC_BIN" :1 \
     -geometry 1280x800 \
     -depth 24 \
     -rfbport 5901 \
