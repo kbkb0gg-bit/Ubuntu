@@ -3,31 +3,33 @@ FROM alpine:latest
 ENV DISPLAY=:1
 ENV LANG=C.UTF-8
 
-# Install desktop environment and VNC
 RUN apk add --no-cache \
-    lxde \
-    lxterminal \
+    openbox \
+    xterm \
     tigervnc \
     dbus \
     dbus-x11 \
-    xterm \
     xorg-server \
     xinit \
     procps \
     sudo \
     bash \
     nano \
-    shadow
+    shadow \
+    font-dejavu
 
 # Configure VNC
 RUN mkdir -p /root/.vnc && \
-    printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec dbus-launch --exit-with-session startlxde\n' \
+    printf '#!/bin/sh\n\
+unset SESSION_MANAGER\n\
+unset DBUS_SESSION_BUS_ADDRESS\n\
+exec dbus-launch openbox-session\n' \
     > /root/.vnc/xstartup && \
     chmod +x /root/.vnc/xstartup && \
     printf 'ChangeMe123!\n' | vncpasswd -f > /root/.vnc/passwd && \
     chmod 600 /root/.vnc/passwd
 
-# Startup script
+# Start VNC server
 RUN printf '#!/bin/sh\n\
 set -e\n\
 vncserver :1 -geometry 1280x800 -depth 24 -localhost no\n\
