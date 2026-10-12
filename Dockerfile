@@ -1,24 +1,24 @@
-FROM debian:bookworm-slim
+FROM archlinux:latest
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
 ENV DISPLAY=:1
 
-# Install LXDE and VNC server
-RUN apt-get update && apt-get install -y \
-    lxde-core \
+# Update Arch Linux and install LXDE + VNC
+RUN pacman -Syu --noconfirm && \
+    pacman -S --noconfirm \
+    lxde \
     lxterminal \
-    dbus-x11 \
-    tigervnc-standalone-server \
-    tigervnc-common \
+    tigervnc \
+    dbus \
+    xorg-server \
+    xorg-xauth \
     xterm \
-    procps \
     sudo \
     nano \
-    ca-certificates \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    procps-ng \
+    && pacman -Scc --noconfirm
 
-# Configure VNC password and desktop startup
+# Configure VNC
 RUN mkdir -p /root/.vnc && \
     printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec dbus-launch --exit-with-session startlxde\n' \
     > /root/.vnc/xstartup && \
@@ -33,7 +33,6 @@ vncserver :1 -geometry 1280x800 -depth 24 -localhost no\n\
 exec tail -F /root/.vnc/*.log\n' > /start.sh && \
     chmod +x /start.sh
 
-# Railway TCP port
 EXPOSE 5901
 
 CMD ["/start.sh"]
