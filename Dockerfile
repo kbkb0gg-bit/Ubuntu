@@ -5,7 +5,7 @@ ENV USER=root
 
 # Install XFCE desktop, VNC server and required utilities
 RUN apt-get update && apt-get install -y \
-    xfce4 \
+    xfce4\
     xfce4-terminal \
     dbus-x11 \
     tigervnc-standalone-server \
