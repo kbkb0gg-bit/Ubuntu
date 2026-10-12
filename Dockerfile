@@ -1,23 +1,25 @@
-FROM fedora:latest
+FROM alpine:latest
 
-ENV LANG=C.UTF-8
 ENV DISPLAY=:1
+ENV LANG=C.UTF-8
 
 # Install desktop environment and VNC
-RUN dnf -y upgrade && \
-    dnf -y install \
-    @lxde-desktop \
-    tigervnc-server \
+RUN apk add --no-cache \
+    lxde \
+    lxterminal \
+    tigervnc \
+    dbus \
     dbus-x11 \
     xterm \
-    procps-ng \
+    xorg-server \
+    xinit \
+    procps \
     sudo \
+    bash \
     nano \
-    shadow-utils \
-    hostname \
-    && dnf clean all
+    shadow
 
-# Configure VNC password and desktop startup
+# Configure VNC
 RUN mkdir -p /root/.vnc && \
     printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec dbus-launch --exit-with-session startlxde\n' \
     > /root/.vnc/xstartup && \
@@ -25,7 +27,7 @@ RUN mkdir -p /root/.vnc && \
     printf 'ChangeMe123!\n' | vncpasswd -f > /root/.vnc/passwd && \
     chmod 600 /root/.vnc/passwd
 
-# Start VNC server
+# Startup script
 RUN printf '#!/bin/sh\n\
 set -e\n\
 vncserver :1 -geometry 1280x800 -depth 24 -localhost no\n\
