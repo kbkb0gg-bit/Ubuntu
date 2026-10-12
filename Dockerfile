@@ -1,24 +1,23 @@
-FROM archlinux:latest
+FROM fedora:latest
 
 ENV LANG=C.UTF-8
 ENV DISPLAY=:1
 
-# Update Arch Linux and install LXDE + VNC
-RUN pacman -Syu --noconfirm && \
-    pacman -S --noconfirm \
-    lxde \
-    lxterminal \
-    tigervnc \
-    dbus \
-    xorg-server \
-    xorg-xauth \
+# Install desktop environment and VNC
+RUN dnf -y upgrade && \
+    dnf -y install \
+    @lxde-desktop \
+    tigervnc-server \
+    dbus-x11 \
     xterm \
+    procps-ng \
     sudo \
     nano \
-    procps-ng \
-    && pacman -Scc --noconfirm
+    shadow-utils \
+    hostname \
+    && dnf clean all
 
-# Configure VNC
+# Configure VNC password and desktop startup
 RUN mkdir -p /root/.vnc && \
     printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec dbus-launch --exit-with-session startlxde\n' \
     > /root/.vnc/xstartup && \
@@ -26,7 +25,7 @@ RUN mkdir -p /root/.vnc && \
     printf 'ChangeMe123!\n' | vncpasswd -f > /root/.vnc/passwd && \
     chmod 600 /root/.vnc/passwd
 
-# Startup script
+# Start VNC server
 RUN printf '#!/bin/sh\n\
 set -e\n\
 vncserver :1 -geometry 1280x800 -depth 24 -localhost no\n\
