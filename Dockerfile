@@ -3,8 +3,10 @@ FROM alpine:3.22
 ENV LANG=C.UTF-8
 ENV DISPLAY=:1
 ENV HOME=/root
+ENV RESOLUTION=1280x800
 
-RUN apk update && apk upgrade && apk add --no-cache \
+# Install Alpine Linux desktop and VNC packages
+RUN apk add --no-cache \
     bash \
     sudo \
     dbus \
@@ -24,29 +26,103 @@ RUN apk update && apk upgrade && apk add --no-cache \
     procps \
     coreutils \
     shadow \
-    && rm -rf /var/cache/apk/*
-
-RUN mkdir -p /root/.vnc /tmp/.X11-unix \
+    && mkdir -p /tmp/.X11-unix \
     && chmod 1777 /tmp/.X11-unix
 
-RUN printf '#!/bin/sh\n\
-unset SESSION_MANAGER\n\
-unset DBUS_SESSION_BUS_ADDRESS\n\
-exec dbus-launch startlxqt\n' > /root/.vnc/xstartup \
-    && chmod +x /root/.vnc/xstartup
+# Configure LXQt session
+RUN cat > /usr/local/bin/xstartup <<'EOF'
+#!/bin/sh
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+exec dbus-launch --exit-with-session startlxqt
+EOF
 
-RUN printf '#!/bin/sh\n\
-set -e\n\
-mkdir -p /root/.vnc\n\
-if [ ! -f /root/.vnc/passwd ]; then\n\
-    echo "Set VNC_PASSWORD before starting the container."\n\
-    exit 1\n\
-fi\n\
-vncserver :1 -geometry "${RESOLUTION:-1280x800}" -depth 24 -localhost no\n\
-exec websockify --web=/usr/share/novnc/ 0.0.0.0:6080 localhost:5901\n' \
-    > /usr/local/bin/start-desktop \
-    && chmod +x /usr/local/bin/start-desktop
+RUN chmod +x /usr/local/bin/xstartup
+
+# Configure desktop startup
+RUN cat > /usr/local/bin/start-desktop <<'EOF'
+#!/bin/sh
+set -eu
+
+: "${VNC_PASSWORD:?Set VNC_PASSWORD environment variable}"
+
+mkdir -p /root/.config/tigervnc
+
+# Generate VNC password file
+printf '%s\n' "$VNC_PASSWORD" \
+    | vncpasswd -f > /root/.config/tigervnc/passwd
+
+chmod 600 /root/.config/tigervnc/passwd
+
+# Start VNC X server directly
+Xvnc :1 \
+    -geometry "${RESOLUTION:-1280x800}" \
+    -depth 24 \
+    -rfbauth /root/.config/tigervnc/passwd \
+    -rfbport 5901 \
+    -localhost no \
+    -SecurityTypes VncAuth \
+    -AlwaysShared &
+
+XVNC_PID=$!
+
+cleanup() {
+    kill "$WEB_PID" "$SESSION_PID" "$XVNC_PID" 2>/dev/null || true
+}
+
+WEB_PID=""
+SESSION_PID=""
+
+trap cleanup EXIT INT TERM
+
+# Wait until the X server is ready
+READY=0
+i=0
+
+while [ "$i" -lt 15 ]; do
+    if ! kill -0 "$XVNC_PID" 2>/dev/null; then
+        echo "ERROR: Xvnc exited unexpectedly"
+        wait "$XVNC_PID" || true
+        exit 1
+    fi
+
+    if [ -S /tmp/.X11-unix/X1 ]; then
+        READY=1
+        break
+    fi
+
+    sleep 1
+    i=$((i + 1))
+done
+
+if [ "$READY" -ne 1 ]; then
+    echo "ERROR: Xvnc failed to initialize"
+    exit 1
+fi
+
+export DISPLAY=:1
+
+# Start LXQt desktop session
+/usr/local/bin/xstartup &
+SESSION_PID=$!
+
+# Start noVNC web access
+websockify \
+    --web=/usr/share/novnc \
+    0.0.0.0:6080 \
+    127.0.0.1:5901 &
+WEB_PID=$!
+
+echo "LXQt desktop started."
+echo "VNC port: 5901"
+echo "noVNC port: 6080"
+
+# Keep container alive while Xvnc is running
+wait "$XVNC_PID"
+EOF
+
+RUN chmod +x /usr/local/bin/start-desktop
 
 EXPOSE 5901 6080
 
-CMD ["/bin/sh", "-c", "mkdir -p /root/.vnc && printf '%s' \"$VNC_PASSWORD\" | vncpasswd -f > /root/.vnc/passwd && chmod 600 /root/.vnc/passwd && exec /usr/local/bin/start-desktop"]
+CMD ["/usr/local/bin/start-desktop"]
