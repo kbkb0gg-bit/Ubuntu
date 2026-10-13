@@ -1,30 +1,52 @@
 FROM alpine:3.22
 
-ENV USER=root
-ENV HOME=/root
+ENV LANG=C.UTF-8
 ENV DISPLAY=:1
-ENV VNC_PORT=5901
-ENV RESOLUTION=1280x720
-ENV DEPTH=24
+ENV HOME=/root
 
-RUN apk update && apk add --no-cache sudo
+RUN apk update && apk upgrade && apk add --no-cache \
+    bash \
+    sudo \
+    dbus \
+    dbus-x11 \
+    xorg-server \
+    xf86-video-dummy \
+    mesa-dri-gallium \
+    font-dejavu \
+    ttf-dejavu \
+    lxqt-desktop \
+    openbox \
+    xterm \
+    tigervnc \
+    novnc \
+    websockify \
+    xkeyboard-config \
+    procps \
+    coreutils \
+    shadow \
+    && rm -rf /var/cache/apk/*
 
-RUN printf '#!/bin/sh\n
-set -eu\n
-mkdir -p /root/.vnc\n
-PASS="${VNC_PASSWORD:-alpine123}"\n
-printf "%s\n%s\n\n" "$PASS" "$PASS" | vncpasswd -f > /root/.vnc/passwd\n
-chmod 600 /root/.vnc/passwd\n
-cat > /root/.vnc/xstartup <<EOF\n
-#!/bin/sh\n
-unset SESSION_MANAGER\n
-unset DBUS_SESSION_BUS_ADDRESS\n
-exec dbus-run-session startlxqt\n
-EOF\n
-chmod +x /root/.vnc/xstartup\n
-exec tigervncserver :1 -fg -localhost no -geometry "${RESOLUTION}" -depth "${DEPTH}" -rfbport "${VNC_PORT}" -SecurityTypes VncAuth -PasswordFile /root/.vnc/passwd\n' > /start.sh 
-&& chmod +x /start.sh
+RUN mkdir -p /root/.vnc /tmp/.X11-unix \
+    && chmod 1777 /tmp/.X11-unix
 
-EXPOSE 5901
+RUN printf '#!/bin/sh\n\
+unset SESSION_MANAGER\n\
+unset DBUS_SESSION_BUS_ADDRESS\n\
+exec dbus-launch startlxqt\n' > /root/.vnc/xstartup \
+    && chmod +x /root/.vnc/xstartup
 
-CMD ["/start.sh"]
+RUN printf '#!/bin/sh\n\
+set -e\n\
+mkdir -p /root/.vnc\n\
+if [ ! -f /root/.vnc/passwd ]; then\n\
+    echo "Set VNC_PASSWORD before starting the container."\n\
+    exit 1\n\
+fi\n\
+vncserver :1 -geometry "${RESOLUTION:-1280x800}" -depth 24 -localhost no\n\
+exec websockify --web=/usr/share/novnc/ 0.0.0.0:6080 localhost:5901\n' \
+    > /usr/local/bin/start-desktop \
+    && chmod +x /usr/local/bin/start-desktop
+
+EXPOSE 5901 6080
+
+CMD ["/bin/sh", "-c", "mkdir -p /root/.vnc && printf '%s' \"$VNC_PASSWORD\" | vncpasswd -f > /root/.vnc/passwd && chmod 600 /root/.vnc/passwd && exec /usr/local/bin/start-desktop"]
