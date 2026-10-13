@@ -8,7 +8,6 @@ ENV RESOLUTION=1280x720
 ENV DEPTH=24
 
 RUN apk update && apk add --no-cache sudo
-&& mkdir -p /root/.vnc
 
 RUN printf '#!/bin/sh\n
 set -eu\n
