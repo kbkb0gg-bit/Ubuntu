@@ -8,7 +8,7 @@ ENV RESOLUTION=1280x720
 ENV DEPTH=24
 
 RUN apk update && apk add --no-cache 
-bash \
+bash\
 sudo \
 dbus \
 xorg-server \
