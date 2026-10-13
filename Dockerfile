@@ -1,72 +1,46 @@
 FROM alpine:3.22
 
-ENV DISPLAY=:1
-ENV LANG=C.UTF-8
+ENV USER=root
 ENV HOME=/root
+ENV DISPLAY=:1
+ENV VNC_PORT=5901
+ENV RESOLUTION=1280x720
+ENV DEPTH=24
 
-# Install XFCE desktop and VNC packages
-RUN apk add --no-cache \
-    xfce4 \
-    xfce4-terminal \
-    thunar \
-    xfce4-panel \
-    xfce4-session \
-    xfce4-settings \
-    xfdesktop \
-    xfwm4 \
-    tigervnc \
-    dbus \
-    dbus-x11 \
-    xterm \
-    font-dejavu \
-    ttf-liberation \
-    procps \
-    bash \
-    nano \
-    adwaita-icon-theme \
-    hicolor-icon-theme
+RUN apk update && apk add --no-cache 
+bash 
+sudo 
+dbus 
+xorg-server 
+xf86-video-dummy 
+xauth 
+tigervnc 
+lxqt-desktop 
+lximage-qt 
+font-dejavu 
+adwaita-icon-theme 
+ttf-freefont 
+mesa-gl 
+mesa-dri-gallium 
+xterm 
+procps 
+&& mkdir -p /root/.vnc
 
-# Configure VNC password
-RUN mkdir -p /root/.vnc && \
-    printf 'ChangeMe123!\n' | vncpasswd -f > /root/.vnc/passwd && \
-    chmod 600 /root/.vnc/passwd
-
-# Configure XFCE startup
-RUN printf '#!/bin/sh\n\
-unset SESSION_MANAGER\n\
-unset DBUS_SESSION_BUS_ADDRESS\n\
-exec dbus-launch --exit-with-session startxfce4\n' \
-    > /root/.vnc/xstartup && \
-    chmod +x /root/.vnc/xstartup
-
-# Find the installed VNC server executable
-RUN VNC_BIN="$(command -v Xvnc || command -v Xtigervnc || find /usr -type f \( -name Xvnc -o -name Xtigervnc \) -print -quit)" && \
-    test -n "$VNC_BIN" && \
-    printf '%s\n' "$VNC_BIN" > /vnc-bin
-
-# Start VNC and XFCE
-RUN cat > /start.sh <<'EOF'
-#!/bin/sh
-set -eu
-
-VNC_BIN="$(cat /vnc-bin)"
-
-mkdir -p /tmp/.X11-unix
-chmod 1777 /tmp/.X11-unix
-
-exec "$VNC_BIN" :1 \
-    -geometry 1280x800 \
-    -depth 24 \
-    -rfbport 5901 \
-    -localhost no \
-    -SecurityTypes VncAuth \
-    -PasswordFile /root/.vnc/passwd \
-    -AlwaysShared \
-    -desktop "Alpine XFCE Desktop" \
-    -xstartup /root/.vnc/xstartup
-EOF
-
-RUN chmod +x /start.sh
+RUN printf '#!/bin/sh\n
+set -eu\n
+mkdir -p /root/.vnc\n
+PASS="${VNC_PASSWORD:-alpine123}"\n
+printf "%s\n%s\n\n" "$PASS" "$PASS" | vncpasswd -f > /root/.vnc/passwd\n
+chmod 600 /root/.vnc/passwd\n
+cat > /root/.vnc/xstartup <<EOF\n
+#!/bin/sh\n
+unset SESSION_MANAGER\n
+unset DBUS_SESSION_BUS_ADDRESS\n
+exec dbus-run-session startlxqt\n
+EOF\n
+chmod +x /root/.vnc/xstartup\n
+exec tigervncserver :1 -fg -localhost no -geometry "${RESOLUTION}" -depth "${DEPTH}" -rfbport "${VNC_PORT}" -SecurityTypes VncAuth -PasswordFile /root/.vnc/passwd\n' > /start.sh 
+&& chmod +x /start.sh
 
 EXPOSE 5901
 
