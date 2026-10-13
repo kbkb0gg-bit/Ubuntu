@@ -8,22 +8,22 @@ ENV RESOLUTION=1280x720
 ENV DEPTH=24
 
 RUN apk update && apk add --no-cache 
-bash 
-sudo 
-dbus 
-xorg-server 
-xf86-video-dummy 
-xauth 
-tigervnc 
-lxqt-desktop 
-lximage-qt 
-font-dejavu 
-adwaita-icon-theme 
-ttf-freefont 
-mesa-gl 
-mesa-dri-gallium 
-xterm 
-procps 
+bash \
+sudo \
+dbus \
+xorg-server \
+xf86-video-dummy \
+xauth \
+tigervnc \
+lxqt-desktop \
+lximage-qt \
+font-dejavu \
+adwaita-icon-theme \
+ttf-freefont \
+mesa-gl \
+mesa-dri-gallium \
+xterm \
+procps \
 && mkdir -p /root/.vnc
 
 RUN printf '#!/bin/sh\n
