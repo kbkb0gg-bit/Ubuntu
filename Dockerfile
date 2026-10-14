@@ -1,4 +1,4 @@
-FROM debain:bookworm
+FROM debain:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=root
