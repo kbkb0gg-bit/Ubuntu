@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM kali:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=root
