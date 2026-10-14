@@ -1,4 +1,4 @@
-FROM kali:latest
+FROM kalilinux/kali-rolling
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=root
