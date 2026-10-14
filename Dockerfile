@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create VNC configuration directory
-RUN mkdir -p /root/.vnc && \
+RUN mkdir -p /root/.vnc \
 
 # Configure VNC startup
 RUN printf '#!/bin/sh\n\
