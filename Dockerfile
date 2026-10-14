@@ -1,4 +1,4 @@
-FROM kalilinux/kali-rolling
+FROM Debain:bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=root
