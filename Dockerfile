@@ -1,4 +1,4 @@
-FROM debain:bookworm-slim
+FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=root
