@@ -1,34 +1,44 @@
-FROM ubuntu:24.04
+FROM alpine:3.22
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV USER=root
-ENV HOME=/root
+ENV LANG=en_US.UTF-8
 ENV DISPLAY=:1
+ENV USER=root
 
-# Install XFCE desktop, TigerVNC, and useful utilities
-RUN apt-get update && apt-get install -y \
-    xfce4 \
-    xfce4-terminal \
-    dbus-x11 \
-    tigervnc-standalone-server \
-    tigervnc-tools \
-    sudo \
+# Install LXQt desktop, X11, VNC and noVNC dependencies
+RUN apk update && apk add --no-cache \
+    lxqt-desktop \
+    openbox \
     xterm \
-    fonts-dejavu \
-    ca-certificates \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    dbus \
+    dbus-x11 \
+    x11vnc \
+    xvfb \
+    novnc \
+    websockify \
+    bash \
+    supervisor \
+    ttf-dejavu \
+    fontconfig \
+    mesa-gl \
+    mesa-dri-gallium \
+    && rm -rf /var/cache/apk/*
 
-# Configure VNC password and desktop startup
-RUN mkdir -p /root/.vnc && \
-    printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec startxfce4\n' \
-    > /root/.vnc/xstartup && \
-    chmod +x /root/.vnc/xstartup && \
-    printf 'vncpassword\nvncpassword\n\n' | vncpasswd /root/.vnc/passwd && \
-    chmod 600 /root/.vnc/passwd
+# Create startup script
+RUN mkdir -p /root/.config/openbox
 
-# VNC display :1 uses TCP port 5901
-EXPOSE 5901
+RUN printf '#!/bin/sh\n\
+mkdir -p /run/dbus\n\
+dbus-daemon --system --fork || true\n\
+Xvfb :1 -screen 0 1280x800x24 -ac &\n\
+sleep 2\n\
+export DISPLAY=:1\n\
+openbox-session &\n\
+sleep 2\n\
+xterm &\n\
+x11vnc -display :1 -forever -shared -nopw -rfbport 5900 &\n\
+exec websockify --web=/usr/share/novnc/ 6080 localhost:5900\n' \
+> /start.sh && chmod +x /start.sh
 
-# Start VNC server in the foreground
-CMD ["sh", "-c", "vncserver :1 -fg -localhost no -geometry 1280x800 -depth 24"]
+EXPOSE 5900 6080
+
+CMD ["/start.sh"]
