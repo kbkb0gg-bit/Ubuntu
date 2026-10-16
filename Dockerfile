@@ -1,44 +1,46 @@
-FROM alpine:3.22
+FROM debian:bookworm-slim
 
-ENV LANG=en_US.UTF-8
-ENV DISPLAY=:1
+ENV DEBIAN_FRONTEND=noninteractive
 ENV USER=root
+ENV HOME=/root
+ENV DISPLAY=:1
+ENV VNC_PORT=5901
+ENV NOVNC_PORT=6080
+ENV VNC_PASSWORD=debian123
 
-# Install LXQt desktop, X11, VNC and noVNC dependencies
-RUN apk update && apk add --no-cache \
-    lxqt-desktop \
-    openbox \
-    xterm \
-    dbus \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xfce4 \
+    xfce4-terminal \
     dbus-x11 \
-    x11vnc \
-    xvfb \
+    tigervnc-standalone-server \
+    tigervnc-common \
     novnc \
     websockify \
-    bash \
-    supervisor \
-    ttf-dejavu \
-    fontconfig \
-    mesa-gl \
-    mesa-dri-gallium \
-    && rm -rf /var/cache/apk/*
+    xterm \
+    sudo \
+    ca-certificates \
+    procps \
+    net-tools \
+    fonts-dejavu \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create startup script
-RUN mkdir -p /root/.config/openbox
+RUN mkdir -p /root/.vnc
 
-RUN printf '#!/bin/sh\n\
-mkdir -p /run/dbus\n\
-dbus-daemon --system --fork || true\n\
-Xvfb :1 -screen 0 1280x800x24 -ac &\n\
-sleep 2\n\
-export DISPLAY=:1\n\
-openbox-session &\n\
-sleep 2\n\
-xterm &\n\
-x11vnc -display :1 -forever -shared -nopw -rfbport 5900 &\n\
-exec websockify --web=/usr/share/novnc/ 6080 localhost:5900\n' \
-> /start.sh && chmod +x /start.sh
+RUN printf '#!/bin/sh\nunset SESSION_MANAGER\nunset DBUS_SESSION_BUS_ADDRESS\nexec startxfce4\n' \
+    > /root/.vnc/xstartup \
+    && chmod +x /root/.vnc/xstartup
 
-EXPOSE 5900 6080
+RUN printf '#!/bin/bash\n\
+set -e\n\
+mkdir -p /root/.vnc\n\
+printf "%s\\n" "$VNC_PASSWORD" | vncpasswd -f > /root/.vnc/passwd\n\
+chmod 600 /root/.vnc/passwd\n\
+vncserver :1 -geometry 1280x800 -depth 24 -localhost no\n\
+websockify --web=/usr/share/novnc/ 0.0.0.0:6080 localhost:5901 &\n\
+exec tail -f /dev/null\n' > /start.sh \
+    && chmod +x /start.sh
+
+EXPOSE 5901 6080
 
 CMD ["/start.sh"]
