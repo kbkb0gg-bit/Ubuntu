@@ -1,0 +1,27 @@
+name: FeelingSurfViewer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  viewer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Run FeelingSurfViewer
+        env:
+          FEELINGSURF_TOKEN: ${{ secrets.FEELINGSURF_TOKEN }}
+        run: |
+          docker run -d \
+            --name feelingsurf-viewer \
+            --restart unless-stopped \
+            -e access_token="$FEELINGSURF_TOKEN" \
+            --tmpfs /tmp \
+            --tmpfs /dev/shm \
+            feelingsurf/viewer:stable
+
+          sleep 10
+          docker ps
+          docker logs feelingsurf-viewer
+          sleep 20000
