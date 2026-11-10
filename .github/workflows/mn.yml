@@ -1,0 +1,49 @@
+name: Windows Coand Runner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-command:
+    runs-on: windows-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Execute Command
+        shell: powershell
+        run: |
+
+          # Detect Username
+          $Username = $env:USERNAME
+          Write-Host "USERNAME: $Username"
+
+          # Show Local IP
+          Write-Host "LOCAL IP:"
+          Get-NetIPAddress -AddressFamily IPv4 |
+            Where-Object {
+              $_.IPAddress -notlike "169.254*" -and
+              $_.InterfaceAlias -notlike "*Loopback*"
+            } |
+            Format-Table InterfaceAlias, IPAddress
+
+          # Show Public IP
+          Write-Host "PUBLIC IP:"
+          $PublicIP = Invoke-RestMethod "https://api.ipify.org"
+          Write-Host $PublicIP
+
+          # Show Windows Version
+          Write-Host "WINDOWS VERSION:"
+          Get-ComputerInfo |
+            Select-Object WindowsProductName, WindowsVersion
+
+          # Keep Workflow Running
+          Write-Host "Workflow running for 6 hours..."
+
+          $EndTime = (Get-Date).AddHours(6)
+
+          while ((Get-Date) -lt $EndTime) {
+              Write-Host "Still running: $(Get-Date)"
+              Start-Sleep -Seconds 30
+          }
+
+          Write-Host "6 HOURS COMPLETED"
